@@ -740,60 +740,67 @@ task.spawn(function()
 	end
 end)
 
--- ⬜ Snippet 4: Network Anchor / Character Position Lock Loop
-local anchorToggleEnabled = false
-
+-- ⬜ Snippet 4: Real Character Anchor / Distance Lock for FE Network Ownership
 local anchorRow = Instance.new("Frame")
 anchorRow.Size = UDim2.new(1, 0, 0, 30)
 anchorRow.Position = UDim2.new(0, 0, 0, 144)
 anchorRow.BackgroundTransparency = 1
 anchorRow.Parent = pageMain
 
+-- Anchor Toggle Button (Left side)
 local anchorToggleBtn = Instance.new("TextButton")
-anchorToggleBtn.Size = UDim2.new(0.68, 0, 1, 0)
-anchorToggleBtn.Position = UDim2.new(0, 0, 0, 0)
+anchorToggleBtn.Size = UDim2.new(0.72, 0, 1, 0)
 anchorToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 anchorToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-anchorToggleBtn.Text = "Net Anchor: OFF"
+anchorToggleBtn.Text = "Anchor Char: OFF"
 anchorToggleBtn.Font = Enum.Font.GothamBold
 anchorToggleBtn.TextSize = 11
 anchorToggleBtn.Parent = anchorRow
 Instance.new("UICorner", anchorToggleBtn).CornerRadius = UDim.new(0, 6)
 
-local anchorInput = Instance.new("TextBox")
-anchorInput.Size = UDim2.new(0.28, 0, 1, 0)
-anchorInput.Position = UDim2.new(0.72, 0, 0, 0)
-anchorInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-anchorInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-anchorInput.Text = "-10"
-anchorInput.Font = Enum.Font.GothamBold
-anchorInput.TextSize = 11
-anchorInput.Parent = anchorRow
-Instance.new("UICorner", anchorInput).CornerRadius = UDim.new(0, 6)
+-- Numeric Input Box for Y Offset (Right side, defaults to -10)
+local offsetInput = Instance.new("TextBox")
+offsetInput.Size = UDim2.new(0.25, 0, 1, 0)
+offsetInput.Position = UDim2.new(0.75, 0, 0, 0)
+offsetInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+offsetInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+offsetInput.Text = "-10"
+offsetInput.Font = Enum.Font.GothamBold
+offsetInput.TextSize = 11
+offsetInput.Parent = anchorRow
+Instance.new("UICorner", offsetInput).CornerRadius = UDim.new(0, 6)
+
+local anchorEnabled = false
 
 anchorToggleBtn.MouseButton1Click:Connect(function()
-	anchorToggleEnabled = not anchorToggleEnabled
-	anchorToggleBtn.Text = "Net Anchor: " .. (anchorToggleEnabled and "ON" or "OFF")
-	anchorToggleBtn.BackgroundColor3 = anchorToggleEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	anchorEnabled = not anchorEnabled
+	anchorToggleBtn.Text = "Anchor Char: " .. (anchorEnabled and "ON" or "OFF")
+	anchorToggleBtn.BackgroundColor3 = anchorEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
--- Continuous Position Lock Loop to prevent falling into the void and maintain network ownership
+-- Continuous Render Loop to lock the real player character position relative to target without dragging it
 RunService.RenderStepped:Connect(function()
-	if not anchorToggleEnabled then return end
+	if not anchorEnabled then return end
+	if controlEnabled then return end -- Skip if you're actively controlling the NPC body via LocalPlayer switch
+	
 	local target = selectedNPCs[1]
 	if not target or not target.Parent then return end
+	
 	local targetRoot = target:FindFirstChild("HumanoidRootPart")
-	if not targetRoot then return end
-	
 	local char = LocalPlayer.Character
-	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-	local pRoot = char.HumanoidRootPart
+	if not targetRoot or not char then return end
 	
-	local offsetVal = tonumber(anchorInput.Text) or -10
+	local pRoot = char:FindFirstChild("HumanoidRootPart")
+	if not pRoot then return end
 	
-	-- Lock XZ position to target, and Y position to target.Position.Y + offsetVal
+	local yOffset = tonumber(offsetInput.Text)
+	if not yOffset then
+		yOffset = -10 -- Fallback default
+	end
+	
+	-- Lock XZ to target, override Y position based on input offset, and zero out velocity to prevent falling/dying
 	local targetPos = targetRoot.Position
-	pRoot.CFrame = CFrame.new(Vector3.new(targetPos.X, targetPos.Y + offsetVal, targetPos.Z))
+	pRoot.CFrame = CFrame.new(targetPos.X, targetPos.Y + yOffset, targetPos.Z)
 	pRoot.AssemblyLinearVelocity = Vector3.zero
 	pRoot.AssemblyAngularVelocity = Vector3.zero
 end)
