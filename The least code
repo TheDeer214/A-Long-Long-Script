@@ -1,7 +1,9 @@
--- NPC
+-- Entity Controller - Part 1
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Camera = Workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -46,7 +48,7 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
--- Main Centralized Non-Draggable Window
+-- Main Centralized Window
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 340, 0, 300)
@@ -62,7 +64,6 @@ floatBtn.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 end)
 
--- Title Top-Left
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0, 150, 0, 30)
 title.Position = UDim2.new(0.03, 0, 0.02, 0)
@@ -74,7 +75,7 @@ title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = mainFrame
 
--- Tab Selection Buttons Top Bar
+-- Tabs
 local tabMainBtn = Instance.new("TextButton")
 tabMainBtn.Size = UDim2.new(0, 85, 0, 26)
 tabMainBtn.Position = UDim2.new(0.03, 0, 0.15, 0)
@@ -108,7 +109,6 @@ tabCmdBtn.TextSize = 11
 tabCmdBtn.Parent = mainFrame
 Instance.new("UICorner", tabCmdBtn).CornerRadius = UDim.new(0, 4)
 
--- Content Pages Containers
 local pageMain = Instance.new("Frame")
 pageMain.Size = UDim2.new(0.94, 0, 0.65, 0)
 pageMain.Position = UDim2.new(0.03, 0, 0.28, 0)
@@ -128,11 +128,10 @@ pageCmd.Size = UDim2.new(0.94, 0, 0.65, 0)
 pageCmd.Position = UDim2.new(0.03, 0, 0.28, 0)
 pageCmd.BackgroundTransparency = 1
 pageCmd.Visible = false
-pageCmd.CanvasSize = UDim2.new(0, 0, 0, 280)
+pageCmd.CanvasSize = UDim2.new(0, 0, 0, 320)
 pageCmd.ScrollBarThickness = 4
 pageCmd.Parent = mainFrame
 
--- Tab Switching Logic
 tabMainBtn.MouseButton1Click:Connect(function()
 	pageMain.Visible = true; pageList.Visible = false; pageCmd.Visible = false
 	tabMainBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -154,15 +153,6 @@ tabCmdBtn.MouseButton1Click:Connect(function()
 	tabCmdBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabCmdBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end)
 
-local infoLbl = Instance.new("TextLabel")
-infoLbl.Size = UDim2.new(1, 0, 0, 40)
-infoLbl.BackgroundTransparency = 1
-infoLbl.Text = "Manage targets and execute commands\nfrom the top tabs."
-infoLbl.TextColor3 = Color3.fromRGB(170, 170, 170)
-infoLbl.Font = Enum.Font.Gotham
-infoLbl.TextSize = 12
-infoLbl.Parent = pageMain
-
 local function isNPC(model)
 	if not model:IsA("Model") then return false end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -183,9 +173,10 @@ local function getNPCs()
 	return npcs
 end
 
+-- Main Tab Buttons (Select All, Highlight, Name Tags)
 local selectAllMainBtn = Instance.new("TextButton")
-selectAllMainBtn.Size = UDim2.new(1, 0, 0, 35)
-selectAllMainBtn.Position = UDim2.new(0, 0, 0, 60)
+selectAllMainBtn.Size = UDim2.new(1, 0, 0, 32)
+selectAllMainBtn.Position = UDim2.new(0, 0, 0, 10)
 selectAllMainBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 selectAllMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 selectAllMainBtn.Text = "Select All Entities"
@@ -194,6 +185,151 @@ selectAllMainBtn.TextSize = 12
 selectAllMainBtn.Parent = pageMain
 Instance.new("UICorner", selectAllMainBtn).CornerRadius = UDim.new(0, 6)
 
+-- Highlight and Name Tags Toggles side by side
+local highlightBtn = Instance.new("TextButton")
+highlightBtn.Size = UDim2.new(0.48, 0, 0, 32)
+highlightBtn.Position = UDim2.new(0, 0, 0, 50)
+highlightBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+highlightBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+highlightBtn.Text = "Highlight: OFF"
+highlightBtn.Font = Enum.Font.GothamBold
+highlightBtn.TextSize = 11
+highlightBtn.Parent = pageMain
+Instance.new("UICorner", highlightBtn).CornerRadius = UDim.new(0, 6)
+
+local tagsBtn = Instance.new("TextButton")
+tagsBtn.Size = UDim2.new(0.48, 0, 0, 32)
+tagsBtn.Position = UDim2.new(0.52, 0, 0, 50)
+tagsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+tagsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tagsBtn.Text = "Name Tags: OFF"
+tagsBtn.Font = Enum.Font.GothamBold
+tagsBtn.TextSize = 11
+tagsBtn.Parent = pageMain
+Instance.new("UICorner", tagsBtn).CornerRadius = UDim.new(0, 6)
+
+-- Feature Logic: Highlights & Scaling Name Tags
+local highlightEnabled = false
+local tagsEnabled = false
+local activeHighlights = {}
+local activeTags = {}
+
+highlightBtn.MouseButton1Click:Connect(function()
+	highlightEnabled = not highlightEnabled
+	highlightBtn.Text = "Highlight: " .. (highlightEnabled and "ON" or "OFF")
+	highlightBtn.BackgroundColor3 = highlightEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	if not highlightEnabled then
+		for _, h in pairs(activeHighlights) do if h then h:Destroy() end end
+		activeHighlights = {}
+	end
+end)
+
+tagsBtn.MouseButton1Click:Connect(function()
+	tagsEnabled = not tagsEnabled
+	tagsBtn.Text = "Name Tags: " .. (tagsEnabled and "ON" or "OFF")
+	tagsBtn.BackgroundColor3 = tagsEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	if not tagsEnabled then
+		for _, t in pairs(activeTags) do if t then t:Destroy() end end
+		activeTags = {}
+	end
+end)
+
+-- Continuous update loop for highlights, name tags, and distance scaling
+RunService.RenderStepped:Connect(function()
+	local npcs = getNPCs()
+	
+	-- Handle Highlights for Selected NPCs
+	if highlightEnabled then
+		for _, npc in ipairs(npcs) do
+			if table.find(selectedNPCs, npc) then
+				if not activeHighlights[npc] then
+					local h = Instance.new("Highlight")
+					h.FillColor = Color3.fromRGB(255, 60, 60)
+					h.OutlineColor = Color3.fromRGB(255, 255, 255)
+					h.Parent = npc
+					activeHighlights[npc] = h
+				end
+			else
+				if activeHighlights[npc] then
+					activeHighlights[npc]:Destroy()
+					activeHighlights[npc] = nil
+				end
+			end
+		end
+	end
+	
+	-- Handle Distance-Scaled Name Tags for All NPCs
+	if tagsEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local pPos = LocalPlayer.Character.HumanoidRootPart.Position
+		for _, npc in ipairs(npcs) do
+			local root = npc:FindFirstChild("HumanoidRootPart")
+			if root then
+				local tag = activeTags[npc]
+				local dist = (root.Position - pPos).Magnitude
+				
+				if not tag then
+					tag = Instance.new("BillboardGui")
+					tag.Name = "EntityNameTag"
+					tag.Size = UDim2.new(0, 120, 0, 30)
+					tag.StudsOffset = Vector3.new(0, 2.5, 0)
+					tag.AlwaysOnTop = true
+					
+					local lbl = Instance.new("TextLabel")
+					lbl.Name = "Label"
+					lbl.Size = UDim2.new(1, 0, 1, 0)
+					lbl.BackgroundTransparency = 1
+					lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+					lbl.TextStrokeTransparency = 0.4
+					lbl.Font = Enum.Font.GothamBold
+					lbl.Text = npc.Name
+					lbl.Parent = tag
+					
+					tag.Parent = root
+					activeTags[npc] = tag
+				end
+				
+				-- Scale text smaller the further away the NPC is
+				local lbl = tag:FindFirstChild("Label")
+				if lbl then
+					local calculatedSize = math.clamp(16 - (dist / 15), 8, 14)
+					lbl.TextSize = calculatedSize
+				end
+			end
+		end
+	else
+		for npc, tag in pairs(activeTags) do
+			if tag then tag:Destroy() end
+		end
+		activeTags = {}
+	end
+end)
+
+-- World Click-to-Select Raycast Support
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		local mousePos = UserInputService:GetMouseLocation()
+		local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+		local params = RaycastParams.new()
+		params.FilterType = RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = {LocalPlayer.Character}
+		
+		local result = Workspace:Raycast(ray.Origin, ray.Direction * 200, params)
+		if result and result.Instance then
+			local model = result.Instance:FindFirstAncestorOfClass("Model")
+			if model and isNPC(model) then
+				local idx = table.find(selectedNPCs, model)
+				if idx then
+					table.remove(selectedNPCs, idx)
+				else
+					table.insert(selectedNPCs, model)
+				end
+			end
+		end
+	end
+end)
+
+-- Entity List Tab UI
 local scrollingEntities = Instance.new("ScrollingFrame")
 scrollingEntities.Size = UDim2.new(1, 0, 1, 0)
 scrollingEntities.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -250,4 +386,4 @@ task.spawn(function()
 	end
 end)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/TheDeer214/A-Long-Long-Script/refs/heads/main/Part%202"))()
+-- Automatically load Part 2 (Commands)
