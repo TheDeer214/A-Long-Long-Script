@@ -740,14 +740,13 @@ task.spawn(function()
 	end
 end)
 
--- ⬜ Snippet 4: Real Character Anchor / Distance Lock for FE Network Ownership
+-- ⬜ Snippet 4: Safe Non-Falling Character Anchor (Physics-safe)
 local anchorRow = Instance.new("Frame")
 anchorRow.Size = UDim2.new(1, 0, 0, 30)
 anchorRow.Position = UDim2.new(0, 0, 0, 144)
 anchorRow.BackgroundTransparency = 1
 anchorRow.Parent = pageMain
 
--- Anchor Toggle Button (Left side)
 local anchorToggleBtn = Instance.new("TextButton")
 anchorToggleBtn.Size = UDim2.new(0.72, 0, 1, 0)
 anchorToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -758,7 +757,6 @@ anchorToggleBtn.TextSize = 11
 anchorToggleBtn.Parent = anchorRow
 Instance.new("UICorner", anchorToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- Numeric Input Box for Y Offset (Right side, defaults to -10)
 local offsetInput = Instance.new("TextBox")
 offsetInput.Size = UDim2.new(0.25, 0, 1, 0)
 offsetInput.Position = UDim2.new(0.75, 0, 0, 0)
@@ -776,12 +774,17 @@ anchorToggleBtn.MouseButton1Click:Connect(function()
 	anchorEnabled = not anchorEnabled
 	anchorToggleBtn.Text = "Anchor Char: " .. (anchorEnabled and "ON" or "OFF")
 	anchorToggleBtn.BackgroundColor3 = anchorEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	
+	local char = LocalPlayer.Character
+	local pRoot = char and char:FindFirstChild("HumanoidRootPart")
+	if pRoot and not anchorEnabled then
+		pRoot.Anchored = false
+	end
 end)
 
--- Continuous Render Loop to lock the real player character position relative to target without dragging it
 RunService.RenderStepped:Connect(function()
 	if not anchorEnabled then return end
-	if controlEnabled then return end -- Skip if you're actively controlling the NPC body via LocalPlayer switch
+	if controlEnabled then return end
 	
 	local target = selectedNPCs[1]
 	if not target or not target.Parent then return end
@@ -793,14 +796,10 @@ RunService.RenderStepped:Connect(function()
 	local pRoot = char:FindFirstChild("HumanoidRootPart")
 	if not pRoot then return end
 	
-	local yOffset = tonumber(offsetInput.Text)
-	if not yOffset then
-		yOffset = -10 -- Fallback default
-	end
+	local yOffset = tonumber(offsetInput.Text) or -10
 	
-	-- Lock XZ to target, override Y position based on input offset, and zero out velocity to prevent falling/dying
+	-- Anchor the player's root part temporarily each frame to completely nullify gravity and falling velocity
+	pRoot.Anchored = true
 	local targetPos = targetRoot.Position
 	pRoot.CFrame = CFrame.new(targetPos.X, targetPos.Y + yOffset, targetPos.Z)
-	pRoot.AssemblyLinearVelocity = Vector3.zero
-	pRoot.AssemblyAngularVelocity = Vector3.zero
 end)
