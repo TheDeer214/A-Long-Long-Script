@@ -1,4 +1,4 @@
--- Snippet 1: Core Setup, GUI, and Navigation
+-- ⬜ Snippet 1: Core Setup, GUI, and Navigation
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
@@ -12,6 +12,11 @@ local selectedNPCs = {}
 local clickSelectEnabled = false
 local highlightEnabled = false
 local nameEspEnabled = false
+
+-- Control mode variables
+local controlEnabled = false
+local originalCharacter = nil
+local originalCameraSubject = nil
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "EntityControllerHub"
@@ -158,10 +163,23 @@ tabCmdBtn.MouseButton1Click:Connect(function()
 	tabCmdBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabCmdBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end)
 
--- Snippet 2: Toggles, List Management, ESP, and Highlights
+-- ⬜ Snippet 2: Main Controls, Control Toggle, Entity List, ESP, and Highlights
+-- Selected NPC Name Display Label on Main Tab
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.new(1, 0, 0, 26)
+nameLabel.Position = UDim2.new(0, 0, 0, 4)
+nameLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+nameLabel.Text = "Selected: None"
+nameLabel.Font = Enum.Font.GothamBold
+nameLabel.TextSize = 11
+nameLabel.Parent = pageMain
+Instance.new("UICorner", nameLabel).CornerRadius = UDim.new(0, 6)
+
+-- Click-to-Select Toggle
 local clickSelectBtn = Instance.new("TextButton")
 clickSelectBtn.Size = UDim2.new(0.48, 0, 0, 30)
-clickSelectBtn.Position = UDim2.new(0, 0, 0, 8)
+clickSelectBtn.Position = UDim2.new(0, 0, 0, 36)
 clickSelectBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 clickSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 clickSelectBtn.Text = "Click-Select: OFF"
@@ -176,9 +194,57 @@ clickSelectBtn.MouseButton1Click:Connect(function()
 	clickSelectBtn.BackgroundColor3 = clickSelectEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
+-- Control Toggle Button (Takes over / stops controlling selected NPC)
+local controlBtn = Instance.new("TextButton")
+controlBtn.Size = UDim2.new(0.48, 0, 0, 30)
+controlBtn.Position = UDim2.new(0.52, 0, 0, 36)
+controlBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+controlBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+controlBtn.Text = "Control: OFF"
+controlBtn.Font = Enum.Font.GothamBold
+controlBtn.TextSize = 11
+controlBtn.Parent = pageMain
+Instance.new("UICorner", controlBtn).CornerRadius = UDim.new(0, 6)
+
+controlBtn.MouseButton1Click:Connect(function()
+	if not controlEnabled then
+		local target = selectedNPCs[1]
+		if not target or not target.Parent then
+			nameLabel.Text = "Select a target first!"
+			return
+		end
+		local hum = target:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then
+			nameLabel.Text = "Target is invalid!"
+			return
+		end
+		
+		originalCharacter = LocalPlayer.Character
+		originalCameraSubject = Camera.CameraSubject
+		
+		controlEnabled = true
+		controlBtn.Text = "Control: ON"
+		controlBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 50)
+		
+		LocalPlayer.Character = target
+		Camera.CameraSubject = hum
+	else
+		controlEnabled = false
+		controlBtn.Text = "Control: OFF"
+		controlBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+		
+		if originalCharacter and originalCharacter.Parent then
+			LocalPlayer.Character = originalCharacter
+			local hum = originalCharacter:FindFirstChildOfClass("Humanoid")
+			if hum then Camera.CameraSubject = hum end
+		end
+	end
+end)
+
+-- Highlight and Name ESP toggles
 local highlightBtn = Instance.new("TextButton")
 highlightBtn.Size = UDim2.new(0.48, 0, 0, 30)
-highlightBtn.Position = UDim2.new(0, 0, 0, 44)
+highlightBtn.Position = UDim2.new(0, 0, 0, 72)
 highlightBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 highlightBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 highlightBtn.Text = "Highlight: OFF"
@@ -195,7 +261,7 @@ end)
 
 local nameEspBtn = Instance.new("TextButton")
 nameEspBtn.Size = UDim2.new(0.48, 0, 0, 30)
-nameEspBtn.Position = UDim2.new(0.52, 0, 0, 44)
+nameEspBtn.Position = UDim2.new(0.52, 0, 0, 72)
 nameEspBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 nameEspBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 nameEspBtn.Text = "Name ESP: OFF"
@@ -210,9 +276,10 @@ nameEspBtn.MouseButton1Click:Connect(function()
 	nameEspBtn.BackgroundColor3 = nameEspEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
+-- Select All & Deselect All
 local selectAllMainBtn = Instance.new("TextButton")
 selectAllMainBtn.Size = UDim2.new(0.48, 0, 0, 30)
-selectAllMainBtn.Position = UDim2.new(0, 0, 0, 80)
+selectAllMainBtn.Position = UDim2.new(0, 0, 0, 108)
 selectAllMainBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 selectAllMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 selectAllMainBtn.Text = "Select All"
@@ -223,7 +290,7 @@ Instance.new("UICorner", selectAllMainBtn).CornerRadius = UDim.new(0, 6)
 
 local deselectAllMainBtn = Instance.new("TextButton")
 deselectAllMainBtn.Size = UDim2.new(0.48, 0, 0, 30)
-deselectAllMainBtn.Position = UDim2.new(0.52, 0, 0, 80)
+deselectAllMainBtn.Position = UDim2.new(0.52, 0, 0, 108)
 deselectAllMainBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
 deselectAllMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 deselectAllMainBtn.Text = "Deselect All"
@@ -290,6 +357,11 @@ local function refreshNPCList()
 			else
 				table.insert(selectedNPCs, targetNpc)
 			end
+			if #selectedNPCs > 0 then
+				nameLabel.Text = "Selected: " .. selectedNPCs[1].Name
+			else
+				nameLabel.Text = "Selected: None"
+			end
 			refreshNPCList()
 		end)
 	end
@@ -298,11 +370,15 @@ end
 
 selectAllMainBtn.MouseButton1Click:Connect(function()
 	selectedNPCs = getNPCs()
+	if #selectedNPCs > 0 then
+		nameLabel.Text = "Selected: " .. selectedNPCs[1].Name
+	end
 	refreshNPCList()
 end)
 
 deselectAllMainBtn.MouseButton1Click:Connect(function()
 	selectedNPCs = {}
+	nameLabel.Text = "Selected: None"
 	refreshNPCList()
 end)
 
@@ -328,13 +404,18 @@ UserInputService.InputBegan:Connect(function(input, processed)
 				else
 					table.insert(selectedNPCs, model)
 				end
+				if #selectedNPCs > 0 then
+					nameLabel.Text = "Selected: " .. selectedNPCs[1].Name
+				else
+					nameLabel.Text = "Selected: None"
+				end
 				refreshNPCList()
 			end
 		end
 	end
 end)
 
--- Snippet 3: Command Suite and Background Loops
+-- ⬜ Snippet 3: Command Suite and Background Loops
 local cmdLayout = Instance.new("UIListLayout")
 cmdLayout.SortOrder = Enum.SortOrder.LayoutOrder
 cmdLayout.Padding = UDim.new(0, 6)
