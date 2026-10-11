@@ -253,7 +253,6 @@ task.spawn(function()
 	end
 end)
 
--- Command
 local cmdLayout = Instance.new("UIListLayout")
 cmdLayout.SortOrder = Enum.SortOrder.LayoutOrder
 cmdLayout.Padding = UDim.new(0, 6)
