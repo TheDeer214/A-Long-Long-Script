@@ -249,3 +249,5 @@ task.spawn(function()
 		task.wait(0.8)
 	end
 end)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/TheDeer214/A-Long-Long-Script/refs/heads/main/Part%202"))()
