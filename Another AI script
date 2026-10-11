@@ -1,0 +1,622 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local camera = Workspace.CurrentCamera
+local mouse = LocalPlayer:GetMouse()
+
+local selectedNPC = nil
+local selectedNPCs = {}
+local highlights = {}
+
+local anchorEnabled = false
+local anchorYOffset = 10
+local controlEnabled = false
+local clickSelectEnabled = false
+local highlightModeEnabled = false
+
+local originalCharacter = nil
+local originalCameraSubject = nil
+local originalCameraType = nil
+local originalMouseBehavior = nil
+
+task.spawn(function()
+	while true do
+		pcall(function()
+			LocalPlayer.MaximumSimulationRadius = math.huge
+			if sethiddenproperty then
+				sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+			end
+		end)
+		task.wait(0.5)
+	end
+end)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UltimateNPCControllerHubV3"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local floatBtn = Instance.new("TextButton")
+floatBtn.Name = "FloatingToggle"
+floatBtn.Size = UDim2.new(0, 40, 0, 40)
+floatBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
+floatBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+floatBtn.Text = "👁️"
+floatBtn.TextSize = 18
+floatBtn.Active = true
+floatBtn.Parent = screenGui
+Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1, 0)
+
+local fDragging, fStart, fPos
+floatBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		fDragging = true
+		fStart = input.Position
+		fPos = floatBtn.Position
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if fDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - fStart
+		floatBtn.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + delta.X, fPos.Y.Scale, fPos.Y.Offset + delta.Y)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		fDragging = false
+	end
+end)
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 260, 0, 260)
+mainFrame.Position = UDim2.new(0.2, 0, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+floatBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "NPC Hub v3.0"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 13
+title.Parent = mainFrame
+
+local dragging, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+local function isNPC(model)
+	if not model:IsA("Model") then return false end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local rootPart = model:FindFirstChild("HumanoidRootPart")
+	if humanoid and rootPart and not Players:GetPlayerFromCharacter(model) then
+		return true
+	end
+	return false
+end
+
+local function getNPCs()
+	local npcs = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if isNPC(obj) then
+			table.insert(npcs, obj)
+		end
+	end
+	return npcs
+end
+
+local function updateHighlights()
+	for model, hl in pairs(highlights) do
+		if not table.find(selectedNPCs, model) then
+			hl:Destroy()
+			highlights[model] = nil
+		end
+	end
+	if not highlightModeEnabled then return end
+	
+	for _, npc in ipairs(getNPCs()) do
+		local isSel = table.find(selectedNPCs, npc) ~= nil
+		local hl = highlights[npc]
+		if not hl then
+			hl = Instance.new("Highlight")
+			hl.Adornee = npc
+			hl.Parent = npc
+			highlights[npc] = hl
+		end
+		hl.FillTransparency = 0.5
+		if isSel then
+			hl.FillColor = Color3.fromRGB(255, 0, 0)
+			hl.OutlineColor = Color3.fromRGB(255, 0, 0)
+		else
+			hl.FillColor = Color3.fromRGB(255, 255, 255)
+			hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+		end
+	end
+end
+
+local function createButton(text, yPos, color)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0.9, 0, 0, 30)
+	btn.Position = UDim2.new(0.05, 0, 0, yPos)
+	btn.BackgroundColor3 = color or Color3.fromRGB(60, 60, 60)
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 12
+	btn.Parent = mainFrame
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+	return btn
+end
+
+local openListBtn = createButton("Open NPC List", 35, Color3.fromRGB(50, 100, 150))
+local openSecondaryBtn = createButton("Open Secondary List", 70, Color3.fromRGB(100, 50, 150))
+local clickSelectToggle = createButton("Enable/Disable Clicking: OFF", 105, Color3.fromRGB(70, 70, 70))
+local highlightToggle = createButton("Enable/Disable Highlight: OFF", 140, Color3.fromRGB(70, 70, 70))
+local controlToggle = createButton("Control Selected NPC: OFF", 175, Color3.fromRGB(60, 60, 60))
+
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(0, 250, 0, 260)
+listFrame.Position = UDim2.new(1.05, 0, 0, 0)
+listFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+listFrame.Visible = false
+listFrame.Parent = mainFrame
+Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 8)
+
+local anchorToggle = Instance.new("TextButton")
+anchorToggle.Size = UDim2.new(0.5, 0, 0, 30)
+anchorToggle.Position = UDim2.new(0.05, 0, 0, 10)
+anchorToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+anchorToggle.Text = "Anchor: OFF"
+anchorToggle.Font = Enum.Font.GothamBold
+anchorToggle.TextSize = 11
+anchorToggle.Parent = listFrame
+Instance.new("UICorner", anchorToggle).CornerRadius = UDim.new(0, 4)
+
+local yInput = Instance.new("TextBox")
+yInput.Size = UDim2.new(0.2, 0, 0, 30)
+yInput.Position = UDim2.new(0.58, 0, 0, 10)
+yInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+yInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+yInput.Text = "10"
+yInput.Font = Enum.Font.GothamBold
+yInput.TextSize = 11
+yInput.Parent = listFrame
+Instance.new("UICorner", yInput).CornerRadius = UDim.new(0, 4)
+yInput.FocusLost:Connect(function()
+	local val = tonumber(yInput.Text)
+	if val then anchorYOffset = val end
+end)
+
+local selectAllBtn = Instance.new("TextButton")
+selectAllBtn.Size = UDim2.new(0.9, 0, 0, 25)
+selectAllBtn.Position = UDim2.new(0.05, 0, 0, 45)
+selectAllBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+selectAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectAllBtn.Text = "Select All"
+selectAllBtn.Font = Enum.Font.GothamBold
+selectAllBtn.TextSize = 11
+selectAllBtn.Parent = listFrame
+Instance.new("UICorner", selectAllBtn).CornerRadius = UDim.new(0, 4)
+
+local scrollingFrame = Instance.new("ScrollingFrame")
+scrollingFrame.Size = UDim2.new(0.9, 0, 0, 170)
+scrollingFrame.Position = UDim2.new(0.05, 0, 0, 78)
+scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollingFrame.ScrollBarThickness = 4
+scrollingFrame.Parent = listFrame
+
+local uiListLayout = Instance.new("UIListLayout")
+uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+uiListLayout.Padding = UDim.new(0, 4)
+uiListLayout.Parent = scrollingFrame
+
+local function refreshNPCList()
+	for _, child in ipairs(scrollingFrame:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	
+	local npcs = getNPCs()
+	for _, npc in ipairs(npcs) do
+		local rowBtn = Instance.new("TextButton")
+		rowBtn.Size = UDim2.new(1, 0, 0, 25)
+		local isSel = table.find(selectedNPCs, npc) ~= nil
+		rowBtn.BackgroundColor3 = isSel and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(70, 70, 70)
+		rowBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		rowBtn.Text = npc.Name
+		rowBtn.Font = Enum.Font.Gotham
+		rowBtn.TextSize = 11
+		rowBtn.Parent = scrollingFrame
+		
+		local targetNpc = npc
+		rowBtn.MouseButton1Click:Connect(function()
+			local idx = table.find(selectedNPCs, targetNpc)
+			if idx then
+				table.remove(selectedNPCs, idx)
+				if selectedNPC == targetNpc then selectedNPC = selectedNPCs[1] end
+			else
+				table.insert(selectedNPCs, targetNpc)
+				selectedNPC = targetNpc
+			end
+			refreshNPCList()
+			updateHighlights()
+		end)
+	end
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #npcs * 29)
+end
+
+task.spawn(function()
+	while true do
+		if listFrame.Visible then
+			refreshNPCList()
+		end
+		task.wait(0.5)
+	end
+end)
+
+openListBtn.MouseButton1Click:Connect(function()
+	listFrame.Visible = not listFrame.Visible
+	if listFrame.Visible then
+		refreshNPCList()
+		openListBtn.Text = "Close NPC List"
+	else
+		openListBtn.Text = "Open NPC List"
+	end
+end)
+
+selectAllBtn.MouseButton1Click:Connect(function()
+	selectedNPCs = getNPCs()
+	selectedNPC = selectedNPCs[1]
+	refreshNPCList()
+	updateHighlights()
+end)
+
+local secFrame = Instance.new("ScrollingFrame")
+secFrame.Size = UDim2.new(0, 250, 0, 260)
+secFrame.Position = UDim2.new(-1.05, 0, 0, 0)
+secFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+secFrame.Visible = false
+secFrame.CanvasSize = UDim2.new(0, 0, 0, 250)
+secFrame.Parent = mainFrame
+Instance.new("UICorner", secFrame).CornerRadius = UDim.new(0, 8)
+
+local secLayout = Instance.new("UIListLayout")
+secLayout.SortOrder = Enum.SortOrder.LayoutOrder
+secLayout.Padding = UDim.new(0, 6)
+secLayout.Parent = secFrame
+
+openSecondaryBtn.MouseButton1Click:Connect(function()
+	secFrame.Visible = not secFrame.Visible
+	openSecondaryBtn.Text = secFrame.Visible and "Close Secondary List" or "Open Secondary List"
+end)
+
+local function createSecRow(height)
+	local r = Instance.new("Frame")
+	r.Size = UDim2.new(0.9, 0, 0, height or 30)
+	r.BackgroundTransparency = 1
+	r.Parent = secFrame
+	return r
+end
+
+local spinRow = createSecRow(30)
+local spinInput = Instance.new("TextBox")
+spinInput.Size = UDim2.new(0.4, 0, 1, 0)
+spinInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+spinInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinInput.PlaceholderText = "Speed"
+spinInput.Text = "10"
+spinInput.Font = Enum.Font.GothamBold
+spinInput.TextSize = 11
+spinInput.Parent = spinRow
+Instance.new("UICorner", spinInput).CornerRadius = UDim.new(0, 4)
+
+local spinBtn = Instance.new("TextButton")
+spinBtn.Size = UDim2.new(0.55, 0, 1, 0)
+spinBtn.Position = UDim2.new(0.45, 0, 0, 0)
+spinBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 100)
+spinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinBtn.Text = "Spin Target"
+spinBtn.Font = Enum.Font.GothamBold
+spinBtn.TextSize = 11
+spinBtn.Parent = spinRow
+Instance.new("UICorner", spinBtn).CornerRadius = UDim.new(0, 4)
+
+spinBtn.MouseButton1Click:Connect(function()
+	local spd = tonumber(spinInput.Text) or 10
+	for _, npc in ipairs(selectedNPCs) do
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if root then
+			local att = root:FindFirstChild("SpinAttachment") or Instance.new("Attachment", root)
+			att.Name = "SpinAttachment"
+			local angV = root:FindFirstChild("SpinVelocity") or Instance.new("AngularVelocity", root)
+			angV.Name = "SpinVelocity"
+			angV.Attachment0 = att
+			angV.MaxTorque = math.huge
+			angV.AngularVelocity = Vector3.new(0, spd, 0)
+			angV.RelativeTo = Enum.ActuatorRelativeTo.World
+		end
+	end
+end)
+
+local sitBtn = Instance.new("TextButton")
+sitBtn.Size = UDim2.new(0.9, 0, 0, 30)
+sitBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 100)
+sitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sitBtn.Text = "Sit Target"
+sitBtn.Font = Enum.Font.GothamBold
+sitBtn.TextSize = 11
+sitBtn.Parent = secFrame
+Instance.new("UICorner", sitBtn).CornerRadius = UDim.new(0, 4)
+sitBtn.MouseButton1Click:Connect(function()
+	for _, npc in ipairs(selectedNPCs) do
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		if hum then hum.Sit = true end
+	end
+end)
+
+local followRow = createSecRow(30)
+local followInput = Instance.new("TextBox")
+followInput.Size = UDim2.new(0.5, 0, 1, 0)
+followInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+followInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+followInput.PlaceholderText = "Player Name..."
+followInput.Font = Enum.Font.GothamBold
+followInput.TextSize = 10
+followInput.Parent = followRow
+Instance.new("UICorner", followInput).CornerRadius = UDim.new(0, 4)
+
+local distInput = Instance.new("TextBox")
+distInput.Size = UDim2.new(0.38, 0, 1, 0)
+distInput.Position = UDim2.new(0.52, 0, 0, 0)
+distInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+distInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+distInput.PlaceholderText = "Dist"
+distInput.Text = "5"
+distInput.Font = Enum.Font.GothamBold
+distInput.TextSize = 10
+distInput.Parent = followRow
+Instance.new("UICorner", distInput).CornerRadius = UDim.new(0, 4)
+
+RunService.RenderStepped:Connect(function()
+	local q = followInput.Text
+	if q == "" then return end
+	local targetPlayer = nil
+	for _, p in ipairs(Players:GetPlayers()) do
+		if string.find(string.lower(p.Name), string.lower(q)) or string.find(string.lower(p.DisplayName), string.lower(q)) then
+			targetPlayer = p
+			break
+		end
+	end
+	if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local pRoot = targetPlayer.Character.HumanoidRootPart
+		local stopDist = tonumber(distInput.Text) or 5
+		for _, npc in ipairs(selectedNPCs) do
+			local hum = npc:FindFirstChildOfClass("Humanoid")
+			local root = npc:FindFirstChild("HumanoidRootPart")
+			if hum and root then
+				local dist = (root.Position - pRoot.Position).Magnitude
+				if dist > stopDist then
+					hum:MoveTo(pRoot.Position)
+				end
+			end
+		end
+	end
+end)
+
+local gotoBtn = Instance.new("TextButton")
+gotoBtn.Size = UDim2.new(0.9, 0, 0, 30)
+gotoBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 100)
+gotoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+gotoBtn.Text = "Go To Target"
+gotoBtn.Font = Enum.Font.GothamBold
+gotoBtn.TextSize = 11
+gotoBtn.Parent = secFrame
+Instance.new("UICorner", gotoBtn).CornerRadius = UDim.new(0, 4)
+gotoBtn.MouseButton1Click:Connect(function()
+	local char = LocalPlayer.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+	local pRoot = char.HumanoidRootPart
+	for _, npc in ipairs(selectedNPCs) do
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if root then
+			pRoot.CFrame = root.CFrame + Vector3.new(0, 3, 0)
+			break
+		end
+	end
+end)
+
+local bringBtn = Instance.new("TextButton")
+bringBtn.Size = UDim2.new(0.9, 0, 0, 30)
+bringBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 50)
+bringBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+bringBtn.Text = "Bring Target"
+bringBtn.Font = Enum.Font.GothamBold
+bringBtn.TextSize = 11
+bringBtn.Parent = secFrame
+Instance.new("UICorner", bringBtn).CornerRadius = UDim.new(0, 4)
+bringBtn.MouseButton1Click:Connect(function()
+	local char = LocalPlayer.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+	local pRoot = char.HumanoidRootPart
+	for _, npc in ipairs(selectedNPCs) do
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.CFrame = pRoot.CFrame + Vector3.new(math.random(-3,3), 0, math.random(-3,3))
+		end
+	end
+end)
+
+local killBtn = Instance.new("TextButton")
+killBtn.Size = UDim2.new(0.9, 0, 0, 30)
+killBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+killBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+killBtn.Text = "Kill Target"
+killBtn.Font = Enum.Font.GothamBold
+killBtn.TextSize = 11
+killBtn.Parent = secFrame
+Instance.new("UICorner", killBtn).CornerRadius = UDim.new(0, 4)
+killBtn.MouseButton1Click:Connect(function()
+	for _, npc in ipairs(selectedNPCs) do
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		if hum then hum.Health = 0 end
+	end
+end)
+
+clickSelectToggle.MouseButton1Click:Connect(function()
+	clickSelectEnabled = not clickSelectEnabled
+	clickSelectToggle.Text = "Enable/Disable Clicking: " .. (clickSelectEnabled and "ON" or "OFF")
+	clickSelectToggle.BackgroundColor3 = clickSelectEnabled and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(70, 70, 70)
+end)
+
+highlightToggle.MouseButton1Click:Connect(function()
+	highlightModeEnabled = not highlightModeEnabled
+	highlightToggle.Text = "Enable/Disable Highlight: " .. (highlightModeEnabled and "ON" or "OFF")
+	highlightToggle.BackgroundColor3 = highlightModeEnabled and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(70, 70, 70)
+	updateHighlights()
+end)
+
+mouse.Button1Down:Connect(function()
+	if not clickSelectEnabled then return end
+	local target = mouse.Target
+	if target and target.Parent then
+		local model = target.Parent
+		if isNPC(model) then
+			local idx = table.find(selectedNPCs, model)
+			if idx then
+				table.remove(selectedNPCs, idx)
+				if selectedNPC == model then selectedNPC = selectedNPCs[1] end
+			else
+				table.insert(selectedNPCs, model)
+				selectedNPC = model
+			end
+			updateHighlights()
+		end
+	end
+end)
+
+anchorToggle.MouseButton1Click:Connect(function()
+	anchorEnabled = not anchorEnabled
+	anchorToggle.Text = "Anchor: " .. (anchorEnabled and "ON" or "OFF")
+	anchorToggle.BackgroundColor3 = anchorEnabled and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(70, 70, 70)
+end)
+
+RunService.RenderStepped:Connect(function()
+	if anchorEnabled and controlEnabled and selectedNPC and selectedNPC.Parent then
+		local npcRoot = selectedNPC:FindFirstChild("HumanoidRootPart")
+		if npcRoot and originalCharacter and originalCharacter:FindFirstChild("HumanoidRootPart") then
+			local playerRoot = originalCharacter.HumanoidRootPart
+			local targetPos = npcRoot.Position - Vector3.new(0, anchorYOffset, 0)
+			playerRoot.CFrame = CFrame.new(targetPos)
+			playerRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		end
+	end
+end)
+
+local function stopControl()
+	local character = originalCharacter
+	local cameraSubject = originalCameraSubject
+	controlEnabled = false
+
+	if character and character.Parent then
+		LocalPlayer.Character = character
+		if camera then
+			if cameraSubject and cameraSubject.Parent then
+				camera.CameraSubject = cameraSubject
+			else
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid then camera.CameraSubject = humanoid end
+			end
+			if originalCameraType then camera.CameraType = originalCameraType end
+			if originalMouseBehavior then UserInputService.MouseBehavior = originalMouseBehavior end
+		end
+	end
+
+	originalCharacter = nil
+	originalCameraSubject = nil
+	originalCameraType = nil
+	originalMouseBehavior = nil
+
+	controlToggle.Text = "Control Selected NPC: OFF"
+	controlToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+end
+
+controlToggle.MouseButton1Click:Connect(function()
+	if controlEnabled then
+		stopControl()
+		return
+	end
+
+	if not selectedNPC or not selectedNPC.Parent then
+		controlToggle.Text = "Select an NPC First!"
+		task.delay(2, function()
+			if not controlEnabled then controlToggle.Text = "Control Selected NPC: OFF" end
+		end)
+		return
+	end
+
+	local humanoid = selectedNPC:FindFirstChildOfClass("Humanoid")
+	local rootPart = selectedNPC:FindFirstChild("HumanoidRootPart")
+	if not humanoid or humanoid.Health <= 0 or not rootPart then return end
+
+	pcall(function()
+		for _, part in ipairs(selectedNPC:GetDescendants()) do
+	pcall(function()
+			if part:IsA("BasePart") then
+				part:SetNetworkOwner(LocalPlayer)
+			end
+		end
+	end)
+
+	originalCharacter = LocalPlayer.Character
+	if camera then
+		originalCameraSubject = camera.CameraSubject
+		originalCameraType = camera.CameraType
+		originalMouseBehavior = UserInputService.MouseBehavior
+		camera.CameraType = Enum.CameraType.Custom
+		camera.CameraSubject = humanoid
+	end
+
+	controlEnabled = true
+	controlToggle.Text = "Control Selected NPC: ON"
+	controlToggle.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+
+	LocalPlayer.Character = selectedNPC
+	
+	local animScript = selectedNPC:FindFirstChild("Animate")
+	if animScript then
+		animScript.Disabled = true
+		task.wait(0.05)
+		animScript.Disabled = false
+	end
+end)
