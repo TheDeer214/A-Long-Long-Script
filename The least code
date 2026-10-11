@@ -412,9 +412,11 @@ task.spawn(function()
 	end
 end)
 
--- Part 2
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+-- Part 2: Command Suite (Fully self-contained and scoped)
+local cmdLayout = Instance.new("UIListLayout")
+cmdLayout.SortOrder = Enum.SortOrder.LayoutOrder
+cmdLayout.Padding = UDim.new(0, 6)
+cmdLayout.Parent = pageCmd
 
 local function createCmdRow()
 	local r = Instance.new("Frame")
