@@ -520,5 +520,3 @@ killBtn.MouseButton1Click:Connect(function()
 		end
 	end
 end)
-
-pageCmd.CanvasSize = UDim2.new(0, 0, 0, 7 * 38)
