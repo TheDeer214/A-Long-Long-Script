@@ -1,0 +1,21 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TestHub"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 200, 0, 50)
+btn.Position = UDim2.new(0.4, 0, 0.4, 0)
+btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+btn.Text = "IT WORKS!"
+btn.TextSize = 20
+btn.Parent = screenGui
+
+btn.MouseButton1Click:Connect(function()
+	btn.Text = "Clicked Successfully!"
+end)
