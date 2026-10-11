@@ -1,12 +1,11 @@
--- Entity Controller - Part 1
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Camera = Workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = Workspace.CurrentCamera
 
 local selectedNPCs = {}
 
@@ -48,10 +47,10 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
--- Main Centralized Window
+-- Main Centralized Non-Draggable Window
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 340, 0, 300)
+mainFrame.Size = UDim2.new(0, 340, 0, 310)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -64,6 +63,7 @@ floatBtn.MouseButton1Click:Connect(function()
 	mainFrame.Visible = not mainFrame.Visible
 end)
 
+-- Title Top-Left
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0, 150, 0, 30)
 title.Position = UDim2.new(0.03, 0, 0.02, 0)
@@ -75,9 +75,9 @@ title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = mainFrame
 
--- Tabs
+-- Tab Selection Buttons Top Bar (Wider, Tighter Spacing)
 local tabMainBtn = Instance.new("TextButton")
-tabMainBtn.Size = UDim2.new(0, 85, 0, 26)
+tabMainBtn.Size = UDim2.new(0.3, 0, 0, 26)
 tabMainBtn.Position = UDim2.new(0.03, 0, 0.15, 0)
 tabMainBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 tabMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -88,8 +88,8 @@ tabMainBtn.Parent = mainFrame
 Instance.new("UICorner", tabMainBtn).CornerRadius = UDim.new(0, 4)
 
 local tabListBtn = Instance.new("TextButton")
-tabListBtn.Size = UDim2.new(0, 85, 0, 26)
-tabListBtn.Position = UDim2.new(0.36, 0, 0.15, 0)
+tabListBtn.Size = UDim2.new(0.3, 0, 0, 26)
+tabListBtn.Position = UDim2.new(0.35, 0, 0.15, 0)
 tabListBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 tabListBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 tabListBtn.Text = "Entity list"
@@ -99,8 +99,8 @@ tabListBtn.Parent = mainFrame
 Instance.new("UICorner", tabListBtn).CornerRadius = UDim.new(0, 4)
 
 local tabCmdBtn = Instance.new("TextButton")
-tabCmdBtn.Size = UDim2.new(0, 85, 0, 26)
-tabCmdBtn.Position = UDim2.new(0.69, 0, 0.15, 0)
+tabCmdBtn.Size = UDim2.new(0.3, 0, 0, 26)
+tabCmdBtn.Position = UDim2.new(0.67, 0, 0.15, 0)
 tabCmdBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 tabCmdBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 tabCmdBtn.Text = "Commands"
@@ -109,6 +109,7 @@ tabCmdBtn.TextSize = 11
 tabCmdBtn.Parent = mainFrame
 Instance.new("UICorner", tabCmdBtn).CornerRadius = UDim.new(0, 4)
 
+-- Content Pages Containers
 local pageMain = Instance.new("Frame")
 pageMain.Size = UDim2.new(0.94, 0, 0.65, 0)
 pageMain.Position = UDim2.new(0.03, 0, 0.28, 0)
@@ -128,10 +129,11 @@ pageCmd.Size = UDim2.new(0.94, 0, 0.65, 0)
 pageCmd.Position = UDim2.new(0.03, 0, 0.28, 0)
 pageCmd.BackgroundTransparency = 1
 pageCmd.Visible = false
-pageCmd.CanvasSize = UDim2.new(0, 0, 0, 320)
+pageCmd.CanvasSize = UDim2.new(0, 0, 0, 280)
 pageCmd.ScrollBarThickness = 4
 pageCmd.Parent = mainFrame
 
+-- Tab Switching Logic
 tabMainBtn.MouseButton1Click:Connect(function()
 	pageMain.Visible = true; pageList.Visible = false; pageCmd.Visible = false
 	tabMainBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -173,148 +175,83 @@ local function getNPCs()
 	return npcs
 end
 
--- Main Tab Buttons (Select All, Highlight, Name Tags)
-local selectAllMainBtn = Instance.new("TextButton")
-selectAllMainBtn.Size = UDim2.new(1, 0, 0, 32)
-selectAllMainBtn.Position = UDim2.new(0, 0, 0, 10)
-selectAllMainBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-selectAllMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-selectAllMainBtn.Text = "Select All Entities"
-selectAllMainBtn.Font = Enum.Font.GothamBold
-selectAllMainBtn.TextSize = 12
-selectAllMainBtn.Parent = pageMain
-Instance.new("UICorner", selectAllMainBtn).CornerRadius = UDim.new(0, 6)
+-- Main Tab Toggles & Features
+local mainLayout = Instance.new("UIListLayout")
+mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
+mainLayout.Padding = UDim.new(0, 6)
+mainLayout.Parent = pageMain
 
--- Highlight and Name Tags Toggles side by side
+-- 1. Highlight Toggle + Name ESP Toggle Row
+local highlightRow = Instance.new("Frame")
+highlightRow.Size = UDim2.new(1, 0, 0, 32)
+highlightRow.BackgroundTransparency = 1
+highlightRow.Parent = pageMain
+
 local highlightBtn = Instance.new("TextButton")
-highlightBtn.Size = UDim2.new(0.48, 0, 0, 32)
-highlightBtn.Position = UDim2.new(0, 0, 0, 50)
+highlightBtn.Size = UDim2.new(0.68, 0, 1, 0)
 highlightBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 highlightBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-highlightBtn.Text = "Highlight: OFF"
+highlightBtn.Text = "Highlight Selected: OFF"
 highlightBtn.Font = Enum.Font.GothamBold
 highlightBtn.TextSize = 11
-highlightBtn.Parent = pageMain
-Instance.new("UICorner", highlightBtn).CornerRadius = UDim.new(0, 6)
+highlightBtn.Parent = highlightRow
+Instance.new("UICorner", highlightBtn).CornerRadius = UDim.new(0, 4)
 
-local tagsBtn = Instance.new("TextButton")
-tagsBtn.Size = UDim2.new(0.48, 0, 0, 32)
-tagsBtn.Position = UDim2.new(0.52, 0, 0, 50)
-tagsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-tagsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tagsBtn.Text = "Name Tags: OFF"
-tagsBtn.Font = Enum.Font.GothamBold
-tagsBtn.TextSize = 11
-tagsBtn.Parent = pageMain
-Instance.new("UICorner", tagsBtn).CornerRadius = UDim.new(0, 6)
+local nameEspBtn = Instance.new("TextButton")
+nameEspBtn.Size = UDim2.new(0.29, 0, 1, 0)
+nameEspBtn.Position = UDim2.new(0.71, 0, 0, 0)
+nameEspBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+nameEspBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+nameEspBtn.Text = "Names: OFF"
+nameEspBtn.Font = Enum.Font.GothamBold
+nameEspBtn.TextSize = 10
+nameEspBtn.Parent = highlightRow
+Instance.new("UICorner", nameEspBtn).CornerRadius = UDim.new(0, 4)
 
--- Feature Logic: Highlights & Scaling Name Tags
-local highlightEnabled = false
-local tagsEnabled = false
-local activeHighlights = {}
-local activeTags = {}
-
+local highlightActive = false
 highlightBtn.MouseButton1Click:Connect(function()
-	highlightEnabled = not highlightEnabled
-	highlightBtn.Text = "Highlight: " .. (highlightEnabled and "ON" or "OFF")
-	highlightBtn.BackgroundColor3 = highlightEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
-	if not highlightEnabled then
-		for _, h in pairs(activeHighlights) do if h then h:Destroy() end end
-		activeHighlights = {}
-	end
+	highlightActive = not highlightActive
+	highlightBtn.Text = "Highlight Selected: " .. (highlightActive and "ON" or "OFF")
+	highlightBtn.BackgroundColor3 = highlightActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
-tagsBtn.MouseButton1Click:Connect(function()
-	tagsEnabled = not tagsEnabled
-	tagsBtn.Text = "Name Tags: " .. (tagsEnabled and "ON" or "OFF")
-	tagsBtn.BackgroundColor3 = tagsEnabled and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
-	if not tagsEnabled then
-		for _, t in pairs(activeTags) do if t then t:Destroy() end end
-		activeTags = {}
-	end
+local nameEspActive = false
+nameEspBtn.MouseButton1Click:Connect(function()
+	nameEspActive = not nameEspActive
+	nameEspBtn.Text = "Names: " .. (nameEspActive and "ON" or "OFF")
+	nameEspBtn.BackgroundColor3 = nameEspActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
--- Continuous update loop for highlights, name tags, and distance scaling
-RunService.RenderStepped:Connect(function()
-	local npcs = getNPCs()
-	
-	-- Handle Highlights for Selected NPCs
-	if highlightEnabled then
-		for _, npc in ipairs(npcs) do
-			if table.find(selectedNPCs, npc) then
-				if not activeHighlights[npc] then
-					local h = Instance.new("Highlight")
-					h.FillColor = Color3.fromRGB(255, 60, 60)
-					h.OutlineColor = Color3.fromRGB(255, 255, 255)
-					h.Parent = npc
-					activeHighlights[npc] = h
-				end
-			else
-				if activeHighlights[npc] then
-					activeHighlights[npc]:Destroy()
-					activeHighlights[npc] = nil
-				end
-			end
-		end
-	end
-	
-	-- Handle Distance-Scaled Name Tags for All NPCs
-	if tagsEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-		local pPos = LocalPlayer.Character.HumanoidRootPart.Position
-		for _, npc in ipairs(npcs) do
-			local root = npc:FindFirstChild("HumanoidRootPart")
-			if root then
-				local tag = activeTags[npc]
-				local dist = (root.Position - pPos).Magnitude
-				
-				if not tag then
-					tag = Instance.new("BillboardGui")
-					tag.Name = "EntityNameTag"
-					tag.Size = UDim2.new(0, 120, 0, 30)
-					tag.StudsOffset = Vector3.new(0, 2.5, 0)
-					tag.AlwaysOnTop = true
-					
-					local lbl = Instance.new("TextLabel")
-					lbl.Name = "Label"
-					lbl.Size = UDim2.new(1, 0, 1, 0)
-					lbl.BackgroundTransparency = 1
-					lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-					lbl.TextStrokeTransparency = 0.4
-					lbl.Font = Enum.Font.GothamBold
-					lbl.Text = npc.Name
-					lbl.Parent = tag
-					
-					tag.Parent = root
-					activeTags[npc] = tag
-				end
-				
-				-- Scale text smaller the further away the NPC is
-				local lbl = tag:FindFirstChild("Label")
-				if lbl then
-					local calculatedSize = math.clamp(16 - (dist / 15), 8, 14)
-					lbl.TextSize = calculatedSize
-				end
-			end
-		end
-	else
-		for npc, tag in pairs(activeTags) do
-			if tag then tag:Destroy() end
-		end
-		activeTags = {}
-	end
+-- 2. Click to Select Toggle (Default False)
+local clickSelectBtn = Instance.new("TextButton")
+clickSelectBtn.Size = UDim2.new(1, 0, 0, 32)
+clickSelectBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+clickSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+clickSelectBtn.Text = "Click to Select World NPC: OFF"
+clickSelectBtn.Font = Enum.Font.GothamBold
+clickSelectBtn.TextSize = 11
+clickSelectBtn.Parent = pageMain
+Instance.new("UICorner", clickSelectBtn).CornerRadius = UDim.new(0, 4)
+
+local clickSelectActive = false
+clickSelectBtn.MouseButton1Click:Connect(function()
+	clickSelectActive = not clickSelectActive
+	clickSelectBtn.Text = "Click to Select World NPC: " .. (clickSelectActive and "ON" or "OFF")
+	clickSelectBtn.BackgroundColor3 = clickSelectActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
 end)
 
--- World Click-to-Select Raycast Support
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if clickSelectActive and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
 		local mousePos = UserInputService:GetMouseLocation()
 		local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
 		local params = RaycastParams.new()
-		params.FilterType = RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = {LocalPlayer.Character}
-		
-		local result = Workspace:Raycast(ray.Origin, ray.Direction * 200, params)
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.IgnoreWater = true
+		if LocalPlayer.Character then
+			params.FilterDescendantsInstances = {LocalPlayer.Character}
+		end
+		local result = Workspace:Raycast(ray.Origin, ray.Direction * 500, params)
 		if result and result.Instance then
 			local model = result.Instance:FindFirstAncestorOfClass("Model")
 			if model and isNPC(model) then
@@ -329,9 +266,36 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Entity List Tab UI
+-- Entity List Page (Includes Select All & Deselect All)
+local topListRow = Instance.new("Frame")
+topListRow.Size = UDim2.new(1, 0, 0, 30)
+topListRow.BackgroundTransparency = 1
+topListRow.Parent = pageList
+
+local selectAllBtn = Instance.new("TextButton")
+selectAllBtn.Size = UDim2.new(0.48, 0, 1, 0)
+selectAllBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+selectAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectAllBtn.Text = "Select All"
+selectAllBtn.Font = Enum.Font.GothamBold
+selectAllBtn.TextSize = 11
+selectAllBtn.Parent = topListRow
+Instance.new("UICorner", selectAllBtn).CornerRadius = UDim.new(0, 4)
+
+local deselectAllBtn = Instance.new("TextButton")
+deselectAllBtn.Size = UDim2.new(0.48, 0, 1, 0)
+deselectAllBtn.Position = UDim2.new(0.52, 0, 0, 0)
+deselectAllBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+deselectAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+deselectAllBtn.Text = "Deselect All"
+deselectAllBtn.Font = Enum.Font.GothamBold
+deselectAllBtn.TextSize = 11
+deselectAllBtn.Parent = topListRow
+Instance.new("UICorner", deselectAllBtn).CornerRadius = UDim.new(0, 4)
+
 local scrollingEntities = Instance.new("ScrollingFrame")
-scrollingEntities.Size = UDim2.new(1, 0, 1, 0)
+scrollingEntities.Size = UDim2.new(1, 0, 1, -36)
+scrollingEntities.Position = UDim2.new(0, 0, 0, 36)
 scrollingEntities.CanvasSize = UDim2.new(0, 0, 0, 0)
 scrollingEntities.ScrollBarThickness = 4
 scrollingEntities.BackgroundTransparency = 1
@@ -374,9 +338,71 @@ local function refreshNPCList()
 	scrollingEntities.CanvasSize = UDim2.new(0, 0, 0, #npcs * 32)
 end
 
-selectAllMainBtn.MouseButton1Click:Connect(function()
+selectAllBtn.MouseButton1Click:Connect(function()
 	selectedNPCs = getNPCs()
 	refreshNPCList()
+end)
+
+deselectAllBtn.MouseButton1Click:Connect(function()
+	selectedNPCs = {}
+	refreshNPCList()
+end)
+
+-- Background loop for Highlighting & Distance-Scaling Name ESP
+RunService.RenderStepped:Connect(function()
+	local allNpcs = getNPCs()
+	local char = LocalPlayer.Character
+	local pRoot = char and char:FindFirstChild("HumanoidRootPart")
+	
+	for _, npc in ipairs(allNpcs) do
+		local isSel = table.find(selectedNPCs, npc) ~= nil
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		
+		-- Handle Highlight
+		local hl = npc:FindFirstChild("EntityHighlight")
+		if highlightActive and isSel then
+			if not hl then
+				hl = Instance.new("Highlight")
+				hl.Name = "EntityHighlight"
+				hl.FillColor = Color3.fromRGB(255, 50, 50)
+				hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+				hl.Parent = npc
+			end
+		else
+			if hl then hl:Destroy() end
+		end
+		
+		-- Handle Name ESP with distance-based font size
+		local bg = root and root:FindFirstChild("EntityNameESP")
+		if nameEspActive and root then
+			local dist = pRoot and (pRoot.Position - root.Position).Magnitude or 50
+			if not bg then
+				bg = Instance.new("BillboardGui")
+				bg.Name = "EntityNameESP"
+				bg.Size = UDim2.new(0, 100, 0, 40)
+				bg.StudsOffset = Vector3.new(0, 2.5, 0)
+				bg.AlwaysOnTop = true
+				bg.Parent = root
+				
+				local lbl = Instance.new("TextLabel")
+				lbl.Name = "Label"
+				lbl.Size = UDim2.new(1, 0, 1, 0)
+				lbl.BackgroundTransparency = 1
+				lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+				lbl.TextStrokeTransparency = 0.5
+				lbl.Font = Enum.Font.GothamBold
+				lbl.Parent = bg
+			end
+			local lbl = bg:FindFirstChild("Label")
+			if lbl then
+				lbl.Text = npc.Name
+				-- Scales smaller the further away the NPC is
+				lbl.TextSize = math.clamp(math.floor(220 / math.max(dist, 5)), 8, 14)
+			end
+		else
+			if bg then bg:Destroy() end
+		end
+	end
 end)
 
 task.spawn(function()
@@ -386,11 +412,9 @@ task.spawn(function()
 	end
 end)
 
--- Automatically load Part 2 (Commands)
-local cmdLayout = Instance.new("UIListLayout")
-cmdLayout.SortOrder = Enum.SortOrder.LayoutOrder
-cmdLayout.Padding = UDim.new(0, 6)
-cmdLayout.Parent = pageCmd
+-- Part 2
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local function createCmdRow()
 	local r = Instance.new("Frame")
@@ -649,7 +673,7 @@ killBtn.MouseButton1Click:Connect(function()
 		local root = npc:FindFirstChild("HumanoidRootPart")
 		if hum then hum.Health = 0 end
 		if root then
-			root.CFrame = root.CFrame - Vector3.new(0, -1000, 0)
+			root.CFrame = Vector3.new(root.Position.X, -1000, root.Position.Z)
 		end
 	end
 end)
