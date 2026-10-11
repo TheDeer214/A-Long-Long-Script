@@ -1,0 +1,524 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local selectedNPCs = {}
+local highlights = {}
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EntityControllerHub"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+-- Floating Draggable Toggle Button
+local floatBtn = Instance.new("TextButton")
+floatBtn.Name = "FloatingToggle"
+floatBtn.Size = UDim2.new(0, 45, 0, 45)
+floatBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
+floatBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+floatBtn.Text = "👁️"
+floatBtn.TextSize = 20
+floatBtn.Active = true
+floatBtn.Parent = screenGui
+Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1, 0)
+
+local fDragging, fStart, fPos
+floatBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		fDragging = true
+		fStart = input.Position
+		fPos = floatBtn.Position
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if fDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - fStart
+		floatBtn.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + delta.X, fPos.Y.Scale, fPos.Y.Offset + delta.Y)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		fDragging = false
+	end
+end)
+
+-- Main Centralized Non-Draggable Window
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 340, 0, 300)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+floatBtn.MouseButton1Click:Connect(function()
+	mainFrame.Visible = not mainFrame.Visible
+end)
+
+-- Title Top-Left
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0, 150, 0, 30)
+title.Position = UDim2.new(0.03, 0, 0.02, 0)
+title.BackgroundTransparency = 1
+title.Text = "Entity Controller"
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
+
+-- Tab Selection Buttons Top Bar
+local tabMainBtn = Instance.new("TextButton")
+tabMainBtn.Size = UDim2.new(0, 85, 0, 26)
+tabMainBtn.Position = UDim2.new(0.03, 0, 0.15, 0)
+tabMainBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+tabMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tabMainBtn.Text = "Main"
+tabMainBtn.Font = Enum.Font.GothamBold
+tabMainBtn.TextSize = 11
+tabMainBtn.Parent = mainFrame
+Instance.new("UICorner", tabMainBtn).CornerRadius = UDim.new(0, 4)
+
+local tabListBtn = Instance.new("TextButton")
+tabListBtn.Size = UDim2.new(0, 85, 0, 26)
+tabListBtn.Position = UDim2.new(0.36, 0, 0.15, 0)
+tabListBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+tabListBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+tabListBtn.Text = "Entity list"
+tabListBtn.Font = Enum.Font.GothamBold
+tabListBtn.TextSize = 11
+tabListBtn.Parent = mainFrame
+Instance.new("UICorner", tabListBtn).CornerRadius = UDim.new(0, 4)
+
+local tabCmdBtn = Instance.new("TextButton")
+tabCmdBtn.Size = UDim2.new(0, 85, 0, 26)
+tabCmdBtn.Position = UDim2.new(0.69, 0, 0.15, 0)
+tabCmdBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+tabCmdBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+tabCmdBtn.Text = "Commands"
+tabCmdBtn.Font = Enum.Font.GothamBold
+tabCmdBtn.TextSize = 11
+tabCmdBtn.Parent = mainFrame
+Instance.new("UICorner", tabCmdBtn).CornerRadius = UDim.new(0, 4)
+
+-- Content Pages Containers
+local pageMain = Instance.new("Frame")
+pageMain.Size = UDim2.new(0.94, 0, 0.65, 0)
+pageMain.Position = UDim2.new(0.03, 0, 0.28, 0)
+pageMain.BackgroundTransparency = 1
+pageMain.Visible = true
+pageMain.Parent = mainFrame
+
+local pageList = Instance.new("Frame")
+pageList.Size = UDim2.new(0.94, 0, 0.65, 0)
+pageList.Position = UDim2.new(0.03, 0, 0.28, 0)
+pageList.BackgroundTransparency = 1
+pageList.Visible = false
+pageList.Parent = mainFrame
+
+local pageCmd = Instance.new("ScrollingFrame")
+pageCmd.Size = UDim2.new(0.94, 0, 0.65, 0)
+pageCmd.Position = UDim2.new(0.03, 0, 0.28, 0)
+pageCmd.BackgroundTransparency = 1
+pageCmd.Visible = false
+pageCmd.CanvasSize = UDim2.new(0, 0, 0, 280)
+pageCmd.ScrollBarThickness = 4
+pageCmd.Parent = mainFrame
+
+-- Tab Switching Logic
+tabMainBtn.MouseButton1Click:Connect(function()
+	pageMain.Visible = true; pageList.Visible = false; pageCmd.Visible = false
+	tabMainBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	tabListBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabListBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+	tabCmdBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabCmdBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+tabListBtn.MouseButton1Click:Connect(function()
+	pageMain.Visible = false; pageList.Visible = true; pageCmd.Visible = false
+	tabMainBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabMainBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+	tabListBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabListBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	tabCmdBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabCmdBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+end)
+
+tabCmdBtn.MouseButton1Click:Connect(function()
+	pageMain.Visible = false; pageList.Visible = false; pageCmd.Visible = true
+	tabMainBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabMainBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+	tabListBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tabListBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+	tabCmdBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); tabCmdBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+end)
+
+-- Main Page Content (Quick Info / Select All)
+local infoLbl = Instance.new("TextLabel")
+infoLbl.Size = UDim2.new(1, 0, 0, 40)
+infoLbl.BackgroundTransparency = 1
+infoLbl.Text = "Manage targets and execute commands\nfrom the top tabs."
+infoLbl.TextColor3 = Color3.fromRGB(170, 170, 170)
+infoLbl.Font = Enum.Font.Gotham
+infoLbl.TextSize = 12
+infoLbl.Parent = pageMain
+
+local function isNPC(model)
+	if not model:IsA("Model") then return false end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local rootPart = model:FindFirstChild("HumanoidRootPart")
+	if humanoid and rootPart and not Players:GetPlayerFromCharacter(model) then
+		return true
+	end
+	return false
+end
+
+local function getNPCs()
+	local npcs = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if isNPC(obj) then
+			table.insert(npcs, obj)
+		end
+	end
+	return npcs
+end
+
+local selectAllMainBtn = Instance.new("TextButton")
+selectAllMainBtn.Size = UDim2.new(1, 0, 0, 35)
+selectAllMainBtn.Position = UDim2.new(0, 0, 0, 60)
+selectAllMainBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+selectAllMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectAllMainBtn.Text = "Select All Entities"
+selectAllMainBtn.Font = Enum.Font.GothamBold
+selectAllMainBtn.TextSize = 12
+selectAllMainBtn.Parent = pageMain
+Instance.new("UICorner", selectAllMainBtn).CornerRadius = UDim.new(0, 6)
+
+-- Entity List Auto-Updating Page
+local scrollingEntities = Instance.new("ScrollingFrame")
+scrollingEntities.Size = UDim2.new(1, 0, 1, 0)
+scrollingEntities.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollingEntities.ScrollBarThickness = 4
+scrollingEntities.BackgroundTransparency = 1
+scrollingEntities.Parent = pageList
+
+local entityLayout = Instance.new("UIListLayout")
+entityLayout.SortOrder = Enum.SortOrder.LayoutOrder
+entityLayout.Padding = UDim.new(0, 4)
+entityLayout.Parent = scrollingEntities
+
+local function refreshNPCList()
+	for _, child in ipairs(scrollingEntities:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	
+	local npcs = getNPCs()
+	for _, npc in ipairs(npcs) do
+		local rowBtn = Instance.new("TextButton")
+		rowBtn.Size = UDim2.new(1, 0, 0, 28)
+		local isSel = table.find(selectedNPCs, npc) ~= nil
+		rowBtn.BackgroundColor3 = isSel and Color3.fromRGB(40, 100, 40) or Color3.fromRGB(35, 35, 35)
+		rowBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		rowBtn.Text = npc.Name .. (isSel and " [Selected]" : "")
+		rowBtn.Font = Enum.Font.Gotham
+		rowBtn.TextSize = 11
+		rowBtn.Parent = scrollingEntities
+		Instance.new("UICorner", rowBtn).CornerRadius = UDim.new(0, 4)
+		
+		local targetNpc = npc
+		rowBtn.MouseButton1Click:Connect(function()
+			local idx = table.find(selectedNPCs, targetNpc)
+			if idx then
+				table.remove(selectedNPCs, idx)
+			else
+				table.insert(selectedNPCs, targetNpc)
+			end
+			refreshNPCList()
+		end)
+	end
+	scrollingEntities.CanvasSize = UDim2.new(0, 0, 0, #npcs * 32)
+end
+
+selectAllMainBtn.MouseButton1Click:Connect(function()
+	selectedNPCs = getNPCs()
+	refreshNPCList()
+end)
+
+task.spawn(function()
+	while true do
+		refreshNPCList()
+		task.wait(0.8)
+	end
+end)
+
+-- Command
+local cmdLayout = Instance.new("UIListLayout")
+cmdLayout.SortOrder = Enum.SortOrder.LayoutOrder
+cmdLayout.Padding = UDim.new(0, 6)
+cmdLayout.Parent = pageCmd
+
+local function createCmdRow()
+	local r = Instance.new("Frame")
+	r.Size = UDim2.new(1, 0, 0, 32)
+	r.BackgroundTransparency = 1
+	r.Parent = pageCmd
+	return r
+end
+
+local function notifyTemp(btn, originalText, tempText, duration)
+	btn.Text = tempText
+	task.delay(duration or 1.5, function()
+		if btn.Text == tempText then
+			btn.Text = originalText
+		end
+	end)
+end
+
+-- 1. Freeze (Toggle)
+local freezeRow = createCmdRow()
+local freezeBtn = Instance.new("TextButton")
+freezeBtn.Size = UDim2.new(1, 0, 1, 0)
+freezeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+freezeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+freezeBtn.Text = "Freeze: OFF"
+freezeBtn.Font = Enum.Font.GothamBold
+freezeBtn.TextSize = 11
+freezeBtn.Parent = freezeRow
+Instance.new("UICorner", freezeBtn).CornerRadius = UDim.new(0, 4)
+
+local freezeActive = false
+freezeBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs == 0 then
+		notifyTemp(freezeBtn, "Freeze: " .. (freezeActive and "ON" or "OFF"), "Select a target first", 1.5)
+		return
+	end
+	freezeActive = not freezeActive
+	freezeBtn.Text = "Freeze: " .. (freezeActive and "ON" or "OFF")
+	freezeBtn.BackgroundColor3 = freezeActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	
+	for _, npc in ipairs(selectedNPCs) do
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if hum then hum.PlatformStand = freezeActive end
+		if root then root.Anchored = freezeActive end
+	end
+end)
+
+-- 2. Animate (Toggle, Default True)
+local animRow = createCmdRow()
+local animBtn = Instance.new("TextButton")
+animBtn.Size = UDim2.new(1, 0, 1, 0)
+animBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 50)
+animBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+animBtn.Text = "Animate: ON"
+animBtn.Font = Enum.Font.GothamBold
+animBtn.TextSize = 11
+animBtn.Parent = animRow
+Instance.new("UICorner", animBtn).CornerRadius = UDim.new(0, 4)
+
+local animActive = true
+animBtn.MouseButton1Click:Connect(function()
+	animActive = not animActive
+	animBtn.Text = "Animate: " .. (animActive and "ON" or "OFF")
+	animBtn.BackgroundColor3 = animActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	
+	for _, npc in ipairs(selectedNPCs) do
+		local animateScript = npc:FindFirstChild("Animate")
+		if animateScript then
+			animateScript.Disabled = not animActive
+		end
+	end
+end)
+
+-- 3. Sit (Toggle, Default False)
+local sitRow = createCmdRow()
+local sitBtn = Instance.new("TextButton")
+sitBtn.Size = UDim2.new(1, 0, 1, 0)
+sitBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+sitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sitBtn.Text = "Sit: OFF"
+sitBtn.Font = Enum.Font.GothamBold
+sitBtn.TextSize = 11
+sitBtn.Parent = sitRow
+Instance.new("UICorner", sitBtn).CornerRadius = UDim.new(0, 4)
+
+local sitActive = false
+sitBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs == 0 then
+		notifyTemp(sitBtn, "Sit: " .. (sitActive and "ON" or "OFF"), "Select a target first", 1.5)
+		return
+	end
+	sitActive = not sitActive
+	sitBtn.Text = "Sit: " .. (sitActive and "ON" or "OFF")
+	sitBtn.BackgroundColor3 = sitActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	
+	for _, npc in ipairs(selectedNPCs) do
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		if hum then hum.Sit = sitActive end
+	end
+end)
+
+-- 4. Spin (Toggle + Speed Input, Default False, Default Speed 10)
+local spinRow = createCmdRow()
+local spinBtn = Instance.new("TextButton")
+spinBtn.Size = UDim2.new(0.72, 0, 1, 0)
+spinBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+spinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinBtn.Text = "Spin: OFF"
+spinBtn.Font = Enum.Font.GothamBold
+spinBtn.TextSize = 11
+spinBtn.Parent = spinRow
+Instance.new("UICorner", spinBtn).CornerRadius = UDim.new(0, 4)
+
+local spinInput = Instance.new("TextBox")
+spinInput.Size = UDim2.new(0.25, 0, 1, 0)
+spinInput.Position = UDim2.new(0.75, 0, 0, 0)
+spinInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+spinInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+spinInput.Text = "10"
+spinInput.Font = Enum.Font.GothamBold
+spinInput.TextSize = 11
+spinInput.Parent = spinRow
+Instance.new("UICorner", spinInput).CornerRadius = UDim.new(0, 4)
+
+local spinActive = false
+spinBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs == 0 then
+		notifyTemp(spinBtn, "Spin: " .. (spinActive and "ON" or "OFF"), "Select a target first", 1.5)
+		return
+	end
+	spinActive = not spinActive
+	spinBtn.Text = "Spin: " .. (spinActive and "ON" or "OFF")
+	spinBtn.BackgroundColor3 = spinActive and Color3.fromRGB(50, 120, 50) or Color3.fromRGB(35, 35, 35)
+	local spd = tonumber(spinInput.Text) or 10
+	
+	for _, npc in ipairs(selectedNPCs) do
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if root then
+			local att = root:FindFirstChild("SpinAttachment") or Instance.new("Attachment", root)
+			att.Name = "SpinAttachment"
+			local angV = root:FindFirstChild("SpinVelocity") or Instance.new("AngularVelocity", root)
+			angV.Name = "SpinVelocity"
+			angV.Attachment0 = att
+			angV.MaxTorque = math.huge
+			angV.AngularVelocity = spinActive and Vector3.new(0, spd, 0) or Vector3.new(0, 0, 0)
+			angV.RelativeTo = Enum.ActuatorRelativeTo.World
+			if not spinActive then
+				angV:Destroy()
+				att:Destroy()
+			end
+		end
+	end
+end)
+
+-- 5. Bring (Action + Distance Input, Default Distance 5)
+local bringRow = createCmdRow()
+local bringBtn = Instance.new("TextButton")
+bringBtn.Size = UDim2.new(0.72, 0, 1, 0)
+bringBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+bringBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+bringBtn.Text = "Bring Target"
+bringBtn.Font = Enum.Font.GothamBold
+bringBtn.TextSize = 11
+bringBtn.Parent = bringRow
+Instance.new("UICorner", bringBtn).CornerRadius = UDim.new(0, 4)
+
+local bringInput = Instance.new("TextBox")
+bringInput.Size = UDim2.new(0.25, 0, 1, 0)
+bringInput.Position = UDim2.new(0.75, 0, 0, 0)
+bringInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+bringInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+bringInput.Text = "5"
+bringInput.Font = Enum.Font.GothamBold
+bringInput.TextSize = 11
+bringInput.Parent = bringRow
+Instance.new("UICorner", bringInput).CornerRadius = UDim.new(0, 4)
+
+bringBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs == 0 then
+		notifyTemp(bringBtn, "Bring Target", "Select a target first", 1.5)
+		return
+	end
+	local char = LocalPlayer.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+	local pRoot = char.HumanoidRootPart
+	local dist = tonumber(bringInput.Text) or 5
+	local targetPos = pRoot.CFrame + (pRoot.CFrame.LookVector * dist)
+	
+	for _, npc in ipairs(selectedNPCs) do
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.CFrame = targetPos
+		end
+	end
+end)
+
+-- 6. Go To (Action + Distance Input, Restricted to EXACTLY 1 target)
+local gotoRow = createCmdRow()
+local gotoBtn = Instance.new("TextButton")
+gotoBtn.Size = UDim2.new(0.72, 0, 1, 0)
+gotoBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+gotoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+gotoBtn.Text = "Go To Target"
+gotoBtn.Font = Enum.Font.GothamBold
+gotoBtn.TextSize = 11
+gotoBtn.Parent = gotoRow
+Instance.new("UICorner", gotoBtn).CornerRadius = UDim.new(0, 4)
+
+local gotoInput = Instance.new("TextBox")
+gotoInput.Size = UDim2.new(0.25, 0, 1, 0)
+gotoInput.Position = UDim2.new(0.75, 0, 0, 0)
+gotoInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+gotoInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+gotoInput.Text = "5"
+gotoInput.Font = Enum.Font.GothamBold
+gotoInput.TextSize = 11
+gotoInput.Parent = gotoRow
+Instance.new("UICorner", gotoInput).CornerRadius = UDim.new(0, 4)
+
+gotoBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs ~= 1 then
+		notifyTemp(gotoBtn, "Go To Target", "Only 1 selected target works", 1.5)
+		return
+	end
+	local char = LocalPlayer.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+	local pRoot = char.HumanoidRootPart
+	local npc = selectedNPCs[1]
+	local root = npc:FindFirstChild("HumanoidRootPart")
+	if root then
+		local dist = tonumber(gotoInput.Text) or 5
+		pRoot.CFrame = root.CFrame - (root.CFrame.LookVector * dist) + Vector3.new(0, 3, 0)
+	end
+end)
+
+-- 7. Kill (Action, sets health to 0 and drops Y level to -1000)
+local killRow = createCmdRow()
+local killBtn = Instance.new("TextButton")
+killBtn.Size = UDim2.new(1, 0, 1, 0)
+killBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
+killBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+killBtn.Text = "Kill Target"
+killBtn.Font = Enum.Font.GothamBold
+killBtn.TextSize = 11
+killBtn.Parent = killRow
+Instance.new("UICorner", killBtn).CornerRadius = UDim.new(0, 4)
+
+killBtn.MouseButton1Click:Connect(function()
+	if #selectedNPCs == 0 then
+		notifyTemp(killBtn, "Kill Target", "Select a target first", 1.5)
+		return
+	end
+	for _, npc in ipairs(selectedNPCs) do
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		if hum then hum.Health = 0 end
+		if root then
+			root.CFrame = root.CFrame - Vector3.new(0, 1000, 0)
+		end
+	end
+end)
+
+pageCmd.CanvasSize = UDim2.new(0, 0, 0, 7 * 38)
